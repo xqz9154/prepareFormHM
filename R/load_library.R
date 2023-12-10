@@ -1,5 +1,6 @@
 # load_library.R
 # install.packages("pacman")
+# install.packages("whitebox")
 library(pacman)
 p_load(shiny,
        shinyFiles,
@@ -8,9 +9,8 @@ p_load(shiny,
        tools,
        elevatr,
        terra,
+       raster,
        sf,
        whitebox,
-       tmap,
-       stars,
        leaflet,
        leaflet.extras)

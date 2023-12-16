@@ -11,8 +11,7 @@ p_load(tidyverse,
        whitebox,
        tmap,
        stars,
-       leaflet,
-       leafem)
+       leaflet)
 
 
 #
@@ -43,7 +42,7 @@ ui <- fillPage(
     tabPanel("Fill sinks",
              sidebarLayout(sidebarPanel(
                # Add a button to open the dialog box to select folder where save dem file
-               actionButton("selectFolder", "Select Folder"),
+               actionButton("folder", "Select Folder"),
                
                # Add a radio button for the depression method
                radioButtons("depressionMethod", "Select Depression Method",
@@ -66,19 +65,27 @@ ui <- fillPage(
 
 # server ----------
 server <- function(input, output, session) {
-  # profvis({
-  rasters <- reactive({
+  options(shiny.maxRequestSize=100*1024^2) # Increase the file size limit
+  print("Server function is running")
+  observeEvent(input$dem, {
     req(input$dem)
-    lapply(input$dem$datapath, function(path) {
-        file_ext <- tools::file_ext(path)
-        if (file_ext %in% c("tif", "asi", "geotiff")) {
-          terra::rast(path)
-        } else if(file_ext %in% c("hgt")) {
-          raster_layer <- raster::raster(path)
-          terra::rast(raster_layer)
+    print("File uploaded") # This message will be printed when a file is uploade
+    
+    rasters <- list()
+    tryCatch(
+      rasters <- lapply(input$dem$datapath, function(x) {
+        file_ext <- tools::file_ext(x)
+        if (file_ext %in% c("tif", "hgt", "geotiff")) {
+          return(raster::raster(x))
+        } else {
+          stop("Invalid file format. Please upload tif, hgt or geotiff files.")
         }
       })
-    })
+      , error=function(e) {
+        message('An Error Occurred at uploading DEM file')
+        print(e)
+      } )
+  })
     # else {
     #   file_ext <- tools::file_ext(input$dem$datapath)
     #   if (file_ext == "tif") {
@@ -93,7 +100,15 @@ server <- function(input, output, session) {
     
     # Print rasters
     print(rasters)
-    
+    # Correct the output$folder issue
+    output$folder <- renderText({
+      folder <- fileDialog(
+        title = "Select Folder",
+        multiple = FALSE,
+        chooseDir = TRUE
+      )
+      folder
+    })
     
     # If there are multiple raster files selected, merge them together
     if (length(rasters) > 1) {
@@ -159,19 +174,7 @@ server <- function(input, output, session) {
   # })
   
   # fill sinks -----------
-    # Open the dialog box when the button is clicked
-    observeEvent(input$selectFolder, {
-      # Open the dialog box
-      output$folder <- renderText({
-        folder <- fileDialog(
-          title = "Select Folder",
-          multiple = FALSE,
-          chooseDir = TRUE
-        )
-        # Return the selected folder
-        folder
-      })
-    })
+   
   observeEvent(input$dem, {
     req(input$dem)
     # Read the saved raster.tif file

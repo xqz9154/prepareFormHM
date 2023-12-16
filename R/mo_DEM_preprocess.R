@@ -3,15 +3,13 @@
 DEM_preprocess_ui <- function(id) {
   ns <- NS(id)
   
-  tagList(
-    fileInput(
-      ns("dem") ,
-      "Select DEM Dataset",
-      accept = c(".tif", ".geotiff", '.hgt'),
-      multiple = TRUE
-    ),
-    leafletOutput(ns("map"))
-  )
+  tagList(fileInput(
+    ns("dem") ,
+    "Select DEM Dataset",
+    accept = c(".tif", ".geotiff", '.hgt'),
+    multiple = TRUE
+  ),
+  leafletOutput(ns("map")))
 }
 
 DEM_preprocess_server <- function(id) {
@@ -30,23 +28,72 @@ DEM_preprocess_server <- function(id) {
             stop("Invalid file format. Please upload tif, hgt or geotiff files.")
           }
         })
-        , error=function(e) {
+        ,
+        error = function(e) {
           message('An Error Occurred at uploading DEM file')
           print(e)
-        } )
+        }
+      )
       
-      tryCatch(
-        output$map <- renderLeaflet({
-          map <- leaflet() %>%
-            addTiles() %>%
-            {purrr::map(.x = rasters, .f = function(r) addRasterImage(., r, maxBytes = 100 * 1024 ^ 2))}
-          # print(map)
-          map
+      print(rasters)
+      
+   
+      # If there are multiple raster files selected, merge them together
+      if (length(rasters) > 1) {
+        merge_rasters <- do.call(terra::merge, rasters)
+        
+        # resample to lower resolution
+        fact <-
+          round(dim(merge_rasters)[1:2] / dim(rasters[[1]])[1:2])
+        merge_rasters <- terra::aggregate(merge_rasters, fact, mean)
+        
+        # Print rasters
+        print(merge_rasters)
+        # Check if the raster data is correctly loaded
+        if (is.null(rasters[[1]])) {
+          return(NULL)
+        }
+        
+        # Display a loading message
+        withProgress(message = "Loading map...", {
+          output$map <- renderLeaflet({
+            leaflet() %>%
+              addTiles(group = "Map") %>%
+              addLayersControl(
+                baseGroups = c("Map"),
+                overlayGroups = c("Raster"),
+                options = layersControlOptions(collapsed = FALSE)
+              ) %>%
+              addRasterImage(merge_rasters,
+                             group = "Raster",
+                             maxBytes = 100 * 1024 ^ 2)
           })
-        , error=function(e) {
-          message('An Error Occurred at plotting of DEM file')
-          print(e)
         })
+        
+      } else
+        #there is only one raster file selected
+      {
+        # Check if the raster data is correctly loaded
+        if (is.null(rasters[[1]])) {
+          return(NULL)
+        }
+        
+        # Display a loading message
+        withProgress(message = "Loading map...", {
+          output$map <- renderLeaflet({
+            leaflet() %>%
+              addTiles(group = "Map") %>%
+              addLayersControl(
+                baseGroups = c("Map"),
+                overlayGroups = c("Raster"),
+                options = layersControlOptions(collapsed = FALSE)
+              ) %>%
+              addRasterImage(rasters[[1]],
+                             group = "Raster",
+                             maxBytes = 100 * 1024 ^ 2)
+          })
+        })
+      }
     })
   })
 }

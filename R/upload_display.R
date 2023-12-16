@@ -19,7 +19,7 @@ upload_display_server <- function(id, uploadedShapefile) {
     observe({
       shpdf <- input$shapefile
       if (is.null(shpdf)) {
-        return()
+        return(NULL)
       }
       previouswd <- getwd()
       uploaddirectory <- dirname(shpdf$datapath[1])
@@ -28,12 +28,15 @@ upload_display_server <- function(id, uploadedShapefile) {
         file.rename(shpdf$datapath[i], shpdf$name[i])
       }
       setwd(previouswd)
+      
       # print(uploaddirectory)
       # print(shpdf$name)
+      
       # read-in shapefile
       uploadedShapefile$value <-
         read_sf(paste(uploaddirectory, shpdf$name[grep(pattern = "*.shp$", shpdf$name)], sep =
                         "/"))
+      
     })
     # display the map
     output$mymap <- renderLeaflet({
